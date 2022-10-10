@@ -1,0 +1,10 @@
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+
+#define PING_TIMEOUT 4000
+#define PING_PAYLOAD 56
+#define IP_HEADER_SIZE 20
+#define ICMP_HEADER_SIZE 8
+#define TOTAL_HEADER_SIZE 28
+
+#endif

@@ -5,7 +5,7 @@
 #include "create_packet.h"
 #include "utils.h"
 
-uint16_t checksum(uint16_t *buff, size_t size, size_t word_ignored);
+#define MAX_PACKET_SIZE 65535
 
 void create_echorequest_packet(
     uint16_t id,
@@ -51,18 +51,4 @@ void create_echorequest_packet(
 void free_echorequest_packet(struct icmp_packet *packet) {
     free(packet->data);
     bzero(packet, sizeof(struct icmp_packet));
-}
-
-// size is in bytes
-uint16_t checksum(uint16_t *buff, size_t size, size_t word_ignored) {
-    size_t n = size / 2;
-    uint16_t checksum = 0;
-    for (size_t i = 0; i < n; i++) {
-        if (i == word_ignored) continue;
-        checksum += buff[i];
-    }
-    if (size % 2 == 1) {
-        checksum += ((u_int8_t *)buff)[size - 1];
-    }
-    return ~checksum;
 }

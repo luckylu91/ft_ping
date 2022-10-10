@@ -1,8 +1,6 @@
 #ifndef CREATE_PACKET_H
 #define CREATE_PACKET_H
 
-#define MAX_PACKET_SIZE 65535
-
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 #include <stdlib.h>

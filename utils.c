@@ -51,3 +51,16 @@ void *calloc_safe(size_t size) {
         exit_fatal("malloc error");
     return res;
 }
+
+uint16_t checksum(uint16_t *buff, size_t size, size_t word_ignored) {
+    size_t n = size / 2;
+    uint16_t checksum = 0;
+    for (size_t i = 0; i < n; i++) {
+        if (i == word_ignored) continue;
+        checksum += buff[i];
+    }
+    if (size % 2 == 1) {
+        checksum += ((u_int8_t *)buff)[size - 1];
+    }
+    return ~checksum;
+}
