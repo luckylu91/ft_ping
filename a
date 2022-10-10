@@ -1,0 +1,12 @@
+Version 4
+IHL 4
+TOS 8
+TL 16
+Identification 16
+Flags 3
+Fragment Offset 13
+TTL 8
+Protocol 8
+Header Checksum 16
+Source Address 32
+Destination Address 32
