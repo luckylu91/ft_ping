@@ -22,5 +22,6 @@ void create_echorequest_packet(
 );
 
 void free_echorequest_packet(struct icmp_packet *packet);
+void create_and_send_packet(int socket_fd, size_t seq_index, struct dest_info *dest);
 
 #endif

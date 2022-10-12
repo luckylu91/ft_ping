@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "utils.h"
-#include "create_packet.h"
+#include "packet.h"
 #include "constants.h"
 
 void get_dest_info(char *dest_arg, struct dest_info *dest) {
@@ -61,8 +61,8 @@ void get_dest_info(char *dest_arg, struct dest_info *dest) {
     ret = getaddrinfo(
         dest_arg,
         NULL, // service (port)
-        &hints,
-        // NULL,
+        // &hints,
+        NULL,
         &dest_addrinfo
     );
     if (ret != 0)
@@ -71,7 +71,14 @@ void get_dest_info(char *dest_arg, struct dest_info *dest) {
     bzero(dest, sizeof(struct dest_info));
     dest->addr = *dest_addrinfo->ai_addr;
     dest->addrlen = dest_addrinfo->ai_addrlen;
-    inet_ntop(AF_INET, &((struct sockaddr_in*)dest_addrinfo->ai_addr)->sin_addr, dest->ip_str, DEST_INFO_IPSTRING_BUFFSIZE);
+    inet_ntop(
+        AF_INET,
+        &((struct sockaddr_in*)dest_addrinfo->ai_addr)->sin_addr,
+        dest->ip_str,
+        DEST_INFO_IPSTRING_BUFFSIZE
+    );
+
+    print_addrinfo(dest_addrinfo);
     freeaddrinfo(dest_addrinfo);
 }
 
@@ -93,94 +100,7 @@ void set_socket_recv_timeout(int socket_fd) {
     setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval));
 }
 
-void create_and_send_packet(int socket_fd, size_t seq_index, struct dest_info *dest) {
-    struct icmp_packet packet;
-    ssize_t sent_size;
-
-    create_echorequest_packet(
-        (uint16_t)getpid(),
-        seq_index,
-        PING_PAYLOAD,
-        &packet
-    );
-    // printf("Sending...\n");
-    sent_size = sendto(
-        socket_fd,
-        packet.data,
-        packet.packet_size,
-        0,
-        &dest->addr,
-        dest->addrlen
-    );
-    free_echorequest_packet(&packet);
-    if (sent_size == -1)
-        exit_fatal("Error in sendto");
-    // printf("Sent %ld bytes\n", sent_size);
-}
-
-void receive_response(int socket_fd, struct dest_info *dest, struct response_info *resp) {
-    struct msghdr msg_header;
-    struct iovec iov[1];
-    unsigned char response_buffer[50];
-    struct cmsghdr cmsg_hdr[10];
-    ssize_t response_size;
-    struct icmp_packet response_icmp_packet;
-    struct iphdr response_ip_header;
-    struct icmphdr response_icmp_header;
-    void *response_payload;
-
-    // RECEIVE MESSAGE
-    bzero(&msg_header, sizeof(struct msghdr));
-    bzero(response_buffer, sizeof(response_buffer) / sizeof(char));
-    msg_header.msg_name = &dest->addr;
-    msg_header.msg_namelen = dest->addrlen;
-    iov[0].iov_base = response_buffer;
-    iov[0].iov_len = sizeof(response_buffer) / sizeof(char);
-    msg_header.msg_iov = iov;
-    msg_header.msg_iovlen = 1;
-    msg_header.msg_control = cmsg_hdr;
-    msg_header.msg_controllen = sizeof(cmsg_hdr) / sizeof(struct cmsghdr);
-
-    // printf("Waiting the response...\n");
-    response_size = recvmsg(
-        socket_fd,
-        &msg_header,
-        0
-    );
-    if (response_size == -1)
-        exit_fatal("Error in recv_msg\n");
-    // printf("Received response for sequence index %lu: %ld bytes\n", seq_index, response_size);
-    // IP Header
-    bzero(&response_ip_header, sizeof(struct iphdr));
-    memcpy(&response_ip_header, response_buffer, IP_HEADER_SIZE);
-    // printf("TTL: %u\n", response_ip_header.ttl);
-    resp->ttl = response_ip_header.ttl;
-    // ICMP HEADER
-    bzero(&response_icmp_header, sizeof(struct icmphdr));
-    memcpy(&response_icmp_header, response_buffer + IP_HEADER_SIZE, ICMP_HEADER_SIZE);
-    // print_icmphdr(&response_icmp_header);
-    // Payload
-    response_payload = response_buffer + TOTAL_HEADER_SIZE;
-
-    /* Receive auxiliary data in msgh */
-    // from man(cmsg)
-    // struct msghdr msgh;
-    // struct cmsghdr *cmsg;
-    // int *ttlptr;
-    // int received_ttl;
-    // for (cmsg = CMSG_FIRSTHDR(&msg_header); cmsg != NULL; cmsg = CMSG_NXTHDR(&msg_header, cmsg)) {
-    //     printf("cmsg level: %d; cmsg type: %d; cmsg len: %lu\n", cmsg->cmsg_level, cmsg->cmsg_type, cmsg->cmsg_len);
-    //     if (cmsg->cmsg_level == IPPROTO_IP
-    //             && cmsg->cmsg_type == IP_TTL) {
-    //         ttlptr = (int *) CMSG_DATA(cmsg);
-    //         received_ttl = *ttlptr;
-    //         printf("Received TTL: %d\n", received_ttl);
-    //         break;
-    //     }
-    // }
-}
-
-double elapsed_time_us(struct timeval *start) {
+double elapsed_time_ms(struct timeval *start) {
     struct timeval stop;
     long int elapsed;
 
@@ -190,12 +110,24 @@ double elapsed_time_us(struct timeval *start) {
     return elapsed;
 }
 
+void wait_for_next_send(struct timeval *last_now) {
+    static double accumulated_time = 0.;
+
+    while (accumulated_time < 2000.) {
+        accumulated_time += elapsed_time_ms(last_now);
+        gettimeofday(&last_now, NULL);
+    }
+}
+
 int main(int argc, char *argv[]) {
     int socket_fd;
     struct dest_info dest;
     struct response_info resp;
-    struct timeval now;
+    struct timeval last_now, now;
     double rtt;
+    double accumulated_time = 0.;
+
+    gettimeofday(&last_now, NULL);
 
     if (argc != 2)
         exit_usage();
@@ -226,9 +158,11 @@ int main(int argc, char *argv[]) {
     // LOOP
     for (size_t seq_index = 0; seq_index < 3; seq_index++) {
         gettimeofday(&now, NULL);
+        // wait_for_next_send(&last_now, &now);
+        gettimeofday(&now, NULL);
         create_and_send_packet(socket_fd, seq_index, &dest);
         receive_response(socket_fd, &dest, &resp);
-        rtt = elapsed_time_us(&now);
+        rtt = elapsed_time_ms(&now);
         printf("%d bytes from %s: icmp_seq=%lu ttl=%d time=%.3f ms\n",
             PING_PAYLOAD + ICMP_HEADER_SIZE,
             dest.ip_str,

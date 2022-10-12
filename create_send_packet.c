@@ -2,8 +2,9 @@
 #include <netinet/ip_icmp.h>
 #include <string.h>
 #include <strings.h>
-#include "create_packet.h"
+#include "packet.h"
 #include "utils.h"
+#include "constants.h"
 
 #define MAX_PACKET_SIZE 65535
 
@@ -24,17 +25,6 @@ void create_echorequest_packet(
     packet->packet_size = 28;
 
     struct icmphdr *icmp_hdr = packet->icmp_hdr;
-    // ip_hdr->version = 4; // IPv4
-    // ip_hdr->ihl = 5; // Length of IP Header w/o options = 5 * 4 bytes
-    // ip_hdr->tos = 0; // Normal priority ?
-    // ip_hdr->tot_len = *packet_size;
-    // ip_hdr->id = 0; // No message fragmentation, hence no identification needed ?
-    // ip_hdr->frag_off = 0x4000; // Dont fragment
-    // ip_hdr->ttl = MAXTTL;
-    // ip_hdr->protocol = IPPROTO_UDP;
-    // ip_hdr->saddr = saddr;
-    // ip_hdr->daddr = daddr;
-    // ip_hdr->check = checksum((uint16_t*)ip_hdr, sizeof(struct iphdr), (size_t)((uint16_t *)&ip_hdr->check - (uint16_t *)ip_hdr));
 
     icmp_hdr->type = ICMP_ECHO; // IPv4
     // packet.type = 128; // IPv6
@@ -51,4 +41,27 @@ void create_echorequest_packet(
 void free_echorequest_packet(struct icmp_packet *packet) {
     free(packet->data);
     bzero(packet, sizeof(struct icmp_packet));
+}
+
+void create_and_send_packet(int socket_fd, size_t seq_index, struct dest_info *dest) {
+    struct icmp_packet packet;
+    ssize_t sent_size;
+
+    create_echorequest_packet(
+        (uint16_t)getpid(),
+        seq_index,
+        PING_PAYLOAD,
+        &packet
+    );
+    sent_size = sendto(
+        socket_fd,
+        packet.data,
+        packet.packet_size,
+        0,
+        &dest->addr,
+        dest->addrlen
+    );
+    free_echorequest_packet(&packet);
+    if (sent_size == -1)
+        exit_fatal("Error in sendto");
 }
