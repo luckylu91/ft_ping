@@ -1,9 +1,10 @@
-#define _GNU_SOURCE
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <stdlib.h>
 #include <netinet/ip_icmp.h>
+#include <errno.h>
+#include <string.h>
 #include "utils.h"
 
 void exit_usage() {
@@ -13,8 +14,8 @@ void exit_usage() {
 }
 
 void exit_fatal(const char *msg) {
-    printf("Fatal error\n");
     printf("%s\n", msg);
+    perror("Fatal error");
     exit(1);
 }
 

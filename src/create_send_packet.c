@@ -2,9 +2,11 @@
 #include <netinet/ip_icmp.h>
 #include <string.h>
 #include <strings.h>
+#include <unistd.h>
 #include "packet.h"
 #include "utils.h"
 #include "constants.h"
+#include "libft.h"
 
 #define MAX_PACKET_SIZE 65535
 
@@ -17,7 +19,7 @@ void create_echorequest_packet(
     if (28 + payload_capacity > MAX_PACKET_SIZE)
         exit_fatal("Maximum packet's payload size exceeded");
 
-    bzero(packet, sizeof(struct icmp_packet));
+    ft_bzero(packet, sizeof(struct icmp_packet));
     packet->data = calloc_safe(8 + payload_capacity);
     packet->payload = (unsigned char *)packet->data + 8;
     packet->icmp_hdr = (struct icmphdr *)packet->data;
@@ -40,7 +42,7 @@ void create_echorequest_packet(
 
 void free_echorequest_packet(struct icmp_packet *packet) {
     free(packet->data);
-    bzero(packet, sizeof(struct icmp_packet));
+    ft_bzero(packet, sizeof(struct icmp_packet));
 }
 
 void create_and_send_packet(int socket_fd, size_t seq_index, struct dest_info *dest) {

@@ -3,6 +3,7 @@
 #include "utils.h"
 #include "packet.h"
 #include "constants.h"
+#include "libft.h"
 
 void receive_response(int socket_fd, struct dest_info *dest, struct response_info *resp) {
     struct msghdr msg_header;
@@ -10,14 +11,13 @@ void receive_response(int socket_fd, struct dest_info *dest, struct response_inf
     unsigned char response_buffer[50];
     struct cmsghdr cmsg_hdr[10];
     ssize_t response_size;
-    struct icmp_packet response_icmp_packet;
     struct iphdr response_ip_header;
     struct icmphdr response_icmp_header;
-    void *response_payload;
+    // void *response_payload;
 
     // RECEIVE MESSAGE
-    bzero(&msg_header, sizeof(struct msghdr));
-    bzero(response_buffer, sizeof(response_buffer) / sizeof(char));
+    ft_bzero(&msg_header, sizeof(struct msghdr));
+    ft_bzero(response_buffer, sizeof(response_buffer) / sizeof(char));
     msg_header.msg_name = &dest->addr;
     msg_header.msg_namelen = dest->addrlen;
     iov[0].iov_base = response_buffer;
@@ -36,12 +36,12 @@ void receive_response(int socket_fd, struct dest_info *dest, struct response_inf
     if (response_size == -1)
         exit_fatal("Error in recv_msg\n");
     // IP Header
-    bzero(&response_ip_header, sizeof(struct iphdr));
-    memcpy(&response_ip_header, response_buffer, IP_HEADER_SIZE);
+    ft_bzero(&response_ip_header, sizeof(struct iphdr));
+    ft_memcpy(&response_ip_header, response_buffer, IP_HEADER_SIZE);
     resp->ttl = response_ip_header.ttl;
     // ICMP HEADER
-    bzero(&response_icmp_header, sizeof(struct icmphdr));
-    memcpy(&response_icmp_header, response_buffer + IP_HEADER_SIZE, ICMP_HEADER_SIZE);
+    ft_bzero(&response_icmp_header, sizeof(struct icmphdr));
+    ft_memcpy(&response_icmp_header, response_buffer + IP_HEADER_SIZE, ICMP_HEADER_SIZE);
     // Payload
-    response_payload = response_buffer + TOTAL_HEADER_SIZE;
+    // response_payload = response_buffer + TOTAL_HEADER_SIZE;
 }

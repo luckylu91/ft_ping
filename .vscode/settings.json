@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    "\"*.pdf\"": "\"pdf\"",
+    "time.h": "c",
+    "inet.h": "c",
+    "netdb.h": "c"
+  }
+}

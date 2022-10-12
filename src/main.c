@@ -8,8 +8,6 @@
  * As long as you're aware of these things, it should not be a problem to define _GNU_SOURCE, but you should avoid defining it and instead define _POSIX_C_SOURCE=200809L or _XOPEN_SOURCE=700 when possible to ensure that your programs are portable.
  * In particular, the things from _GNU_SOURCE that you should never use are #2 and #4 above.
  */
-
-#define _GNU_SOURCE
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <signal.h>
@@ -20,9 +18,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "constants.h"
 #include "utils.h"
 #include "packet.h"
-#include "constants.h"
+#include "response.h"
+#include "libft.h"
 
 void get_dest_info(char *dest_arg, struct dest_info *dest) {
     struct addrinfo hints;
@@ -54,21 +54,21 @@ void get_dest_info(char *dest_arg, struct dest_info *dest) {
      *        Multiple flags are specified by bitwise OR-ing them
      *        together.
      */
-    bzero(&hints, sizeof(hints));
+    ft_bzero(&hints, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_protocol = SOCK_DGRAM;
 
     ret = getaddrinfo(
         dest_arg,
         NULL, // service (port)
-        // &hints,
-        NULL,
+        &hints,
+        // NULL,
         &dest_addrinfo
     );
     if (ret != 0)
         exit_fatal(gai_strerror(ret));
     // print_addrinfo(dest_addrinfo);
-    bzero(dest, sizeof(struct dest_info));
+    ft_bzero(dest, sizeof(struct dest_info));
     dest->addr = *dest_addrinfo->ai_addr;
     dest->addrlen = dest_addrinfo->ai_addrlen;
     inet_ntop(
@@ -82,14 +82,16 @@ void get_dest_info(char *dest_arg, struct dest_info *dest) {
     freeaddrinfo(dest_addrinfo);
 }
 
-void create_socket(int *socket_fd) {
-    *socket_fd = socket(
+int create_socket() {
+    int socket_fd;
+    socket_fd = socket(
         AF_INET,     // IPv4
         SOCK_RAW,    // or SOCK_DGRAM ?
         IPPROTO_ICMP // use the single available protocol
     );
-    if (*socket_fd == -1)
+    if (socket_fd == -1)
         exit_fatal("Error creating socket");
+    return socket_fd;
 }
 
 void set_socket_recv_timeout(int socket_fd) {
@@ -115,7 +117,7 @@ void wait_for_next_send(struct timeval *last_now) {
 
     while (accumulated_time < 2000.) {
         accumulated_time += elapsed_time_ms(last_now);
-        gettimeofday(&last_now, NULL);
+        gettimeofday(last_now, NULL);
     }
 }
 
@@ -125,7 +127,7 @@ int main(int argc, char *argv[]) {
     struct response_info resp;
     struct timeval last_now, now;
     double rtt;
-    double accumulated_time = 0.;
+    // double accumulated_time = 0.;
 
     gettimeofday(&last_now, NULL);
 
@@ -146,7 +148,7 @@ int main(int argc, char *argv[]) {
     // SO_RCVTIMEO and SO_SNDTIMEO
     //   Specify the receiving or sending timeouts until reporting
     //   an error
-    create_socket(&socket_fd);
+    socket_fd = create_socket();
     set_socket_recv_timeout(socket_fd);
     printf("PING %s (%s) %d(%d) bytes of data.\n",
         argv[1],

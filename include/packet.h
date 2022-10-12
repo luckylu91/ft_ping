@@ -4,6 +4,7 @@
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 #include <stdlib.h>
+#include "utils.h"
 
 struct icmp_packet {
     // struct iphdr ip_hdr;

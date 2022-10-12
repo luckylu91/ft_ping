@@ -1,7 +1,6 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define _GNU_SOURCE
 #include <netdb.h>
 #include <netinet/ip_icmp.h>
 
