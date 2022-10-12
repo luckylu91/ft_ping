@@ -104,20 +104,21 @@ void set_socket_recv_timeout(int socket_fd) {
 
 double elapsed_time_ms(struct timeval *start) {
     struct timeval stop;
-    long int elapsed;
+    double elapsed;
 
     gettimeofday(&stop, NULL);
     elapsed = (stop.tv_sec - start->tv_sec) * 1000.0;
     elapsed += (stop.tv_usec - start->tv_usec) / 1000.0;
+    *start = stop;
     return elapsed;
 }
 
 void wait_for_next_send(struct timeval *last_now) {
-    static double accumulated_time = 0.;
+    double accumulated_time = 0.;
 
-    while (accumulated_time < 2000.) {
+    while (accumulated_time < 1000.) {
+        // printf("%lf\n", accumulated_time);
         accumulated_time += elapsed_time_ms(last_now);
-        gettimeofday(last_now, NULL);
     }
 }
 
@@ -125,11 +126,12 @@ int main(int argc, char *argv[]) {
     int socket_fd;
     struct dest_info dest;
     struct response_info resp;
-    struct timeval last_now, now;
+    struct timeval now;
     double rtt;
+    size_t nreceived = 0;
+    struct icmp_packet packet;
     // double accumulated_time = 0.;
 
-    gettimeofday(&last_now, NULL);
 
     if (argc != 2)
         exit_usage();
@@ -153,27 +155,35 @@ int main(int argc, char *argv[]) {
     printf("PING %s (%s) %d(%d) bytes of data.\n",
         argv[1],
         dest.ip_str,
-        PING_PAYLOAD,
-        TOTAL_HEADER_SIZE + PING_PAYLOAD
+        PING_PAYLOAD_SIZE,
+        TOTAL_HEADER_SIZE + PING_PAYLOAD_SIZE
     );
 
     // LOOP
     for (size_t seq_index = 0; seq_index < 3; seq_index++) {
         gettimeofday(&now, NULL);
-        // wait_for_next_send(&last_now, &now);
-        gettimeofday(&now, NULL);
-        create_and_send_packet(socket_fd, seq_index, &dest);
-        receive_response(socket_fd, &dest, &resp);
+        create_and_send_packet(socket_fd, seq_index, &dest, &packet);
+        if (receive_response(socket_fd, &dest, &resp) == -1)
+            continue;
+        if (check_response(&packet, &resp) == -1) {
+            // DEBUG
+            printf("Incorrect response\n");
+            continue;
+        }
+        nreceived++;
+        // checksums
         rtt = elapsed_time_ms(&now);
-        printf("%d bytes from %s: icmp_seq=%lu ttl=%d time=%.3f ms\n",
-            PING_PAYLOAD + ICMP_HEADER_SIZE,
+        printf("%d bytes from %s: icmp_seq=%lu ttl=%d time=%.1f ms\n",
+            PING_PAYLOAD_SIZE + ICMP_HEADER_SIZE,
             dest.ip_str,
             seq_index + 1,
-            resp.ttl,
+            resp.ip_header.ttl,
             rtt
         );
+        if (seq_index < 2)
+            wait_for_next_send(&now);
     }
 
-    printf("--- %s ping statistics ---", argv[1]);
+    printf("--- %s ping statistics ---\n", argv[1]);
     // printf("%lu packets transmitted, %lu received, %.1f%% packet loss, time %.0fms", );
 }

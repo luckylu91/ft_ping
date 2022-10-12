@@ -18,8 +18,4 @@ struct dest_info {
     socklen_t       addrlen;
 };
 
-struct response_info {
-    uint8_t ttl;
-};
-
 #endif

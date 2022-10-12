@@ -13,18 +13,14 @@
 void create_echorequest_packet(
     uint16_t id,
     uint16_t sequence,
-    size_t payload_capacity,
     struct icmp_packet *packet
 ) {
-    if (28 + payload_capacity > MAX_PACKET_SIZE)
-        exit_fatal("Maximum packet's payload size exceeded");
-
     ft_bzero(packet, sizeof(struct icmp_packet));
-    packet->data = calloc_safe(8 + payload_capacity);
-    packet->payload = (unsigned char *)packet->data + 8;
+    packet->data = calloc_safe(ICMP_HEADER_SIZE + PING_PAYLOAD_SIZE);
+    packet->payload = (unsigned char *)packet->data + ICMP_HEADER_SIZE;
     packet->icmp_hdr = (struct icmphdr *)packet->data;
     packet->payload_size = 0;
-    packet->packet_size = 28;
+    packet->packet_size = ICMP_HEADER_SIZE + PING_PAYLOAD_SIZE;
 
     struct icmphdr *icmp_hdr = packet->icmp_hdr;
 
@@ -45,25 +41,23 @@ void free_echorequest_packet(struct icmp_packet *packet) {
     ft_bzero(packet, sizeof(struct icmp_packet));
 }
 
-void create_and_send_packet(int socket_fd, size_t seq_index, struct dest_info *dest) {
-    struct icmp_packet packet;
+void create_and_send_packet(int socket_fd, size_t seq_index, struct dest_info *dest, struct icmp_packet *packet) {
     ssize_t sent_size;
 
     create_echorequest_packet(
         (uint16_t)getpid(),
         seq_index,
-        PING_PAYLOAD,
-        &packet
+        packet
     );
     sent_size = sendto(
         socket_fd,
-        packet.data,
-        packet.packet_size,
+        packet->data,
+        packet->packet_size,
         0,
         &dest->addr,
         dest->addrlen
     );
-    free_echorequest_packet(&packet);
+    free_echorequest_packet(packet);
     if (sent_size == -1)
         exit_fatal("Error in sendto");
 }
